@@ -1,0 +1,224 @@
+using System;
+using System.Collections.Generic;
+using System.Timers;
+
+namespace SmartOffice
+{
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            Console.WriteLine("Welcome to Smart Office Management System!");
+
+            // Initialize the office facility
+            OfficeFacility facility = OfficeFacility.Instance;
+            facility.ConfigureFacility();
+
+            string command = string.Empty;
+
+            while (command != "exit")
+            {
+                Console.WriteLine("\nEnter a command (book, cancel, status, exit):");
+                command = Console.ReadLine();
+
+                switch (command)
+                {
+                    case "book":
+                        facility.BookRoom();
+                        break;
+                    case "cancel":
+                        facility.CancelBooking();
+                        break;
+                    case "status":
+                        facility.DisplayStatus();
+                        break;
+                    case "exit":
+                        Console.WriteLine("Exiting the system.");
+                        break;
+                    default:
+                        Console.WriteLine("Invalid command.");
+                        break;
+                }
+            }
+        }
+    }
+
+    public class OfficeFacility
+    {
+        private static OfficeFacility _instance;
+        private static readonly object padlock = new object();
+        private List<ConferenceRoom> rooms;
+
+        private OfficeFacility()
+        {
+            rooms = new List<ConferenceRoom>();
+        }
+
+        public static OfficeFacility Instance
+        {
+            get
+            {
+                lock (padlock)
+                {
+                    if (_instance == null)
+                    {
+                        _instance = new OfficeFacility();
+                    }
+                    return _instance;
+                }
+            }
+        }
+
+        public void ConfigureFacility()
+        {
+            Console.WriteLine("Enter the number of conference rooms:");
+            int numRooms = int.Parse(Console.ReadLine());
+
+            for (int i = 0; i < numRooms; i++)
+            {
+                rooms.Add(new ConferenceRoom { RoomNumber = i + 1 });
+            }
+
+            Console.WriteLine($"Configured {numRooms} conference rooms.");
+        }
+
+        public void BookRoom()
+        {
+            Console.WriteLine("Enter the room number to book:");
+            int roomNumber = int.Parse(Console.ReadLine());
+
+            if (roomNumber <= 0 || roomNumber > rooms.Count)
+            {
+                Console.WriteLine("Invalid room number.");
+                return;
+            }
+
+            var room = rooms[roomNumber - 1];
+            if (room.IsBooked)
+            {
+                Console.WriteLine($"Room {roomNumber} is already booked.");
+            }
+            else
+            {
+                room.BookRoom();
+                Console.WriteLine($"Room {roomNumber} has been booked.");
+            }
+        }
+
+        public void CancelBooking()
+        {
+            Console.WriteLine("Enter the room number to cancel booking:");
+            int roomNumber = int.Parse(Console.ReadLine());
+
+            if (roomNumber <= 0 || roomNumber > rooms.Count)
+            {
+                Console.WriteLine("Invalid room number.");
+                return;
+            }
+
+            var room = rooms[roomNumber - 1];
+            if (!room.IsBooked)
+            {
+                Console.WriteLine($"Room {roomNumber} is not booked.");
+            }
+            else
+            {
+                room.CancelBooking();
+                Console.WriteLine($"Booking for room {roomNumber} has been cancelled.");
+            }
+        }
+
+        public void DisplayStatus()
+        {
+            foreach (var room in rooms)
+            {
+                Console.WriteLine($"Room {room.RoomNumber}: {(room.IsBooked ? "Booked" : "Available")}, Occupancy: {room.Occupancy}, AC: {(room.IsACOn ? "On" : "Off")}, Lights: {(room.AreLightsOn ? "On" : "Off")}");
+            }
+        }
+    }
+
+    public class ConferenceRoom
+    {
+        private static readonly int ReleaseTimeInMinutes = 5;
+        private Timer occupancyTimer;
+
+        public int RoomNumber { get; set; }
+        public bool IsBooked { get; private set; }
+        public bool IsOccupied { get; private set; }
+        public int Occupancy { get; private set; }
+        public bool IsACOn { get; private set; }
+        public bool AreLightsOn { get; private set; }
+
+        public ConferenceRoom()
+        {
+            occupancyTimer = new Timer(ReleaseTimeInMinutes * 60 * 1000);
+            occupancyTimer.Elapsed += CheckOccupancy;
+        }
+
+        public void BookRoom()
+        {
+            IsBooked = true;
+            StartOccupancyTimer();
+        }
+
+        public void CancelBooking()
+        {
+            IsBooked = false;
+            IsOccupied = false;
+            Occupancy = 0;
+            IsACOn = false;
+            AreLightsOn = false;
+            StopOccupancyTimer();
+        }
+
+        public void EnterRoom(int numberOfPeople)
+        {
+            if (numberOfPeople >= 2)
+            {
+                IsOccupied = true;
+                Occupancy = numberOfPeople;
+                TurnOnACAndLights();
+                StopOccupancyTimer();
+            }
+        }
+
+        public void LeaveRoom()
+        {
+            IsOccupied = false;
+            Occupancy = 0;
+            TurnOffACAndLights();
+            StartOccupancyTimer();
+        }
+
+        private void TurnOnACAndLights()
+        {
+            IsACOn = true;
+            AreLightsOn = true;
+        }
+
+        private void TurnOffACAndLights()
+        {
+            IsACOn = false;
+            AreLightsOn = false;
+        }
+
+        private void StartOccupancyTimer()
+        {
+            occupancyTimer.Start();
+        }
+
+        private void StopOccupancyTimer()
+        {
+            occupancyTimer.Stop();
+        }
+
+        private void CheckOccupancy(object sender, ElapsedEventArgs e)
+        {
+            if (!IsOccupied && IsBooked)
+            {
+                CancelBooking();
+                Console.WriteLine($"Room {RoomNumber} booking was automatically released due to inactivity.");
+            }
+        }
+    }
+}
