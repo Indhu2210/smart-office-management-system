@@ -1,0 +1,193 @@
+using System;
+using System.Collections.Generic;
+
+// Observer Pattern Components
+public interface IObserver
+{
+    void Update(INotification notification);
+}
+
+public class User : IObserver
+{
+    private string _name;
+    
+    public User(string name)
+    {
+        _name = name;
+    }
+    
+    public void Update(INotification notification)
+    {
+        Console.WriteLine($"{_name} received notification: {notification.GetMessage()}");
+    }
+}
+
+public interface ISubject
+{
+    void Attach(IObserver observer);
+    void Detach(IObserver observer);
+    void Notify(INotification notification);
+}
+
+public class NotificationSystem : ISubject
+{
+    private List<IObserver> _observers = new List<IObserver>();
+
+    public void Attach(IObserver observer)
+    {
+        _observers.Add(observer);
+    }
+
+    public void Detach(IObserver observer)
+    {
+        _observers.Remove(observer);
+    }
+
+    public void Notify(INotification notification)
+    {
+        foreach (IObserver observer in _observers)
+        {
+            observer.Update(notification);
+        }
+    }
+}
+
+// Factory Method Pattern Components
+public interface INotification
+{
+    string GetMessage();
+}
+
+public class EmailNotification : INotification
+{
+    private string _message;
+
+    public EmailNotification(string message)
+    {
+        _message = message;
+    }
+
+    public string GetMessage()
+    {
+        return $"Email: {_message}";
+    }
+}
+
+public class SMSNotification : INotification
+{
+    private string _message;
+
+    public SMSNotification(string message)
+    {
+        _message = message;
+    }
+
+    public string GetMessage()
+    {
+        return $"SMS: {_message}";
+    }
+}
+
+public abstract class NotificationFactory
+{
+    public abstract INotification CreateNotification(string message);
+}
+
+public class EmailNotificationFactory : NotificationFactory
+{
+    public override INotification CreateNotification(string message)
+    {
+        return new EmailNotification(message);
+    }
+}
+
+public class SMSNotificationFactory : NotificationFactory
+{
+    public override INotification CreateNotification(string message)
+    {
+        return new SMSNotification(message);
+    }
+}
+
+// Decorator Pattern Components
+public abstract class NotificationDecorator : INotification
+{
+    protected INotification _notification;
+
+    public NotificationDecorator(INotification notification)
+    {
+        _notification = notification;
+    }
+
+    public virtual string GetMessage()
+    {
+        return _notification.GetMessage();
+    }
+}
+
+public class SignatureDecorator : NotificationDecorator
+{
+    private string _signature;
+
+    public SignatureDecorator(INotification notification, string signature) : base(notification)
+    {
+        _signature = signature;
+    }
+
+    public override string GetMessage()
+    {
+        return $"{_notification.GetMessage()} - {_signature}";
+    }
+}
+
+public class EncryptionDecorator : NotificationDecorator
+{
+    public EncryptionDecorator(INotification notification) : base(notification) { }
+
+    public override string GetMessage()
+    {
+        return Encrypt(_notification.GetMessage());
+    }
+
+    private string Encrypt(string message)
+    {
+        // Simple encryption logic (just reversing the message for demonstration purposes)
+        char[] charArray = message.ToCharArray();
+        Array.Reverse(charArray);
+        return new string(charArray);
+    }
+}
+
+// Client Code
+class Program
+{
+    static void Main()
+    {
+        // Create Notification System (Subject)
+        NotificationSystem notificationSystem = new NotificationSystem();
+
+        // Create Users (Observers)
+        User user1 = new User("John");
+        User user2 = new User("Jane");
+
+        // Attach Users to Notification System
+        notificationSystem.Attach(user1);
+        notificationSystem.Attach(user2);
+
+        // Create Notification Factories
+        NotificationFactory emailFactory = new EmailNotificationFactory();
+        NotificationFactory smsFactory = new SMSNotificationFactory();
+
+        // Create Notifications
+        INotification emailNotification = emailFactory.CreateNotification("Welcome to our service!");
+        INotification smsNotification = smsFactory.CreateNotification("Your OTP is 123456");
+
+        // Decorate Notifications
+        emailNotification = new SignatureDecorator(emailNotification, "Best Regards, The Team");
+        smsNotification = new EncryptionDecorator(smsNotification);
+
+        // Notify Users
+        notificationSystem.Notify(emailNotification);
+        notificationSystem.Notify(smsNotification);
+    }
+}
